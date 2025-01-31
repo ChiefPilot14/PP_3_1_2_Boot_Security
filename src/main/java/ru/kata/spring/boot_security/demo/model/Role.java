@@ -1,6 +1,7 @@
 package ru.kata.spring.boot_security.demo.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.NaturalId;
 import org.springframework.security.core.GrantedAuthority;
 
 import java.util.Objects;
@@ -12,14 +13,21 @@ public class Role implements GrantedAuthority {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(name = "name")
+
+    @Column(name = "name", nullable = false, unique = true)
+    @NaturalId
     private String name;
-    //@Transient
+
+
     @ManyToMany(mappedBy = "roles")
     private Set<User> users;
 
     public Role() {
 
+    }
+
+    public Role(String name) {
+        this.name = name;
     }
 
     public Role(Long id) {
@@ -62,12 +70,13 @@ public class Role implements GrantedAuthority {
 
     @Override
     public boolean equals(Object o) {
+        if (this == o) return true;
         if (!(o instanceof Role role)) return false;
-        return Objects.equals(getId(), role.getId()) && Objects.equals(getName(), role.getName());
+        return Objects.equals(getName(), role.getName());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getId(), getName());
+        return Objects.hashCode(getName());
     }
 }

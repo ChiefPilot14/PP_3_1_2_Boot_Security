@@ -42,4 +42,16 @@ public class RoleServiceImpl implements RoleService {
     public Set<Role> getRoles(User user) {
         return user.getRoles();
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Role> findByName(String roleUser) {
+        return roleDao.findByName(roleUser);
+    }
+
+    @Override
+    @Transactional
+    public Role save(Role newRole) {
+        return roleDao.saveAndFlush(newRole);
+    }
 }

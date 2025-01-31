@@ -13,4 +13,8 @@ public interface RoleService {
     List<Role> findAllByIdIn(List<Long> ids);
 
     Set<Role> getRoles(User user);
+
+    Optional<Role> findByName(String roleUser);
+
+    Role save(Role newRole);
 }
