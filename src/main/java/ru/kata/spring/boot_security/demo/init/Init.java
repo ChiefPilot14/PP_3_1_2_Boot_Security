@@ -1,82 +1,87 @@
 package ru.kata.spring.boot_security.demo.init;
 
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.event.ContextRefreshedEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import ru.kata.spring.boot_security.demo.model.Role;
-import ru.kata.spring.boot_security.demo.model.User;
-import ru.kata.spring.boot_security.demo.service.RoleService;
-import ru.kata.spring.boot_security.demo.service.UserService;
-
-import java.util.Collections;
-import java.util.HashSet;
 
 @Component
 @Transactional
-public class Init implements CommandLineRunner {
+public class Init {
 
-    private final UserService userService;
-    private final RoleService roleService;
+    private final JdbcTemplate jdbcTemplate;
+    private final BCryptPasswordEncoder bCryptPasswordEncoder;
 
     @Autowired
-    public Init(UserService userService, RoleService roleService) {
-        this.userService = userService;
-        this.roleService = roleService;
+    public Init(JdbcTemplate jdbcTemplate, BCryptPasswordEncoder bCryptPasswordEncoder) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.bCryptPasswordEncoder = bCryptPasswordEncoder;
     }
 
-    @Override
-    public void run(String... args) {
-        Role roleUser = roleService.findByName("ROLE_USER").orElseGet(() -> {
-            Role newRole = new Role();
-            newRole.setName("ROLE_USER");
-            Role savedRole = roleService.save(newRole);
-            System.out.println("Saved ROLE_USER with ID: " + savedRole.getId()); // Логирование
-            return savedRole;
-        });
+    //@EventListener(ContextRefreshedEvent.class)
+    @PostConstruct
+    public void init() {
+        createTables();
+        insertInitialData();
+    }
 
-        roleUser = roleService.save(roleUser);
+    private void createTables() {
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS roles (" +
+                "id BIGINT PRIMARY KEY AUTO_INCREMENT, " +
+                "name VARCHAR(255) NOT NULL UNIQUE)");
 
-        Role roleAdmin = roleService.findByName("ROLE_ADMIN").orElseGet(() -> {
-            Role newRole = new Role();
-            newRole.setName("ROLE_ADMIN");
-            Role savedRole = roleService.save(newRole);
-            System.out.println("Saved ROLE_ADMIN with ID: " + savedRole.getId()); // Логирование
-            return savedRole;
-        });
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS users (" +
+                "id BIGINT PRIMARY KEY AUTO_INCREMENT, " +
+                "username VARCHAR(255) NOT NULL UNIQUE, " +
+                "password VARCHAR(255) NOT NULL, " +
+                "name VARCHAR(255), " +
+                "last_name VARCHAR(255), " +
+                "age TINYINT, " +
+                "email VARCHAR(255))");
 
-        roleAdmin = roleService.save(roleAdmin);
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS users_roles (" +
+                "user_id BIGINT NOT NULL, " +
+                "role_id BIGINT NOT NULL, " +
+                "PRIMARY KEY (user_id, role_id), " +
+                "FOREIGN KEY (user_id) REFERENCES users(id), " +
+                "FOREIGN KEY (role_id) REFERENCES roles(id))");
+    }
 
+    private void insertInitialData() {
+        jdbcTemplate.update("INSERT INTO roles (name) SELECT 'ROLE_USER' WHERE NOT EXISTS (SELECT 1 FROM roles WHERE name = 'ROLE_USER')");
+        jdbcTemplate.update("INSERT INTO roles (name) SELECT 'ROLE_ADMIN' WHERE NOT EXISTS (SELECT 1 FROM roles WHERE name = 'ROLE_ADMIN')");
 
-        User user = new User();
-        user.setUsername("user");
-        user.setPassword("password");
-        user.setRoles(new HashSet<>(Collections.singletonList(roleUser)), false);
-        user.setName("Test User");
-        user.setLastName("Userovich");
-        user.setAge((byte) 25);
-        user.setEmail("user@example.com");
-        userService.createUser(user);
+        String userPassword = bCryptPasswordEncoder.encode("password");
+        String adminPassword = bCryptPasswordEncoder.encode("admin");
+        String admin1Password = bCryptPasswordEncoder.encode("123");
 
+        jdbcTemplate.update("INSERT INTO users (username, password, name, last_name, age, email) " +
+                "SELECT 'user', ?, 'Test User', 'Userovich', 25, 'user@example.com' " +
+                "WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'user')", userPassword);
 
-        User admin = new User();
-        admin.setUsername("admin");
-        admin.setPassword("admin");
-        admin.setRoles(new HashSet<>(Collections.singletonList(roleAdmin)), false);
-        admin.setName("Test Admin");
-        admin.setLastName("Adminovich");
-        admin.setAge((byte) 30);
-        admin.setEmail("admin@example.com");
-        userService.createUser(admin);
+        jdbcTemplate.update("INSERT INTO users (username, password, name, last_name, age, email) " +
+                "SELECT 'admin', ?, 'Test Admin', 'Adminovich', 30, 'admin@example.com' " +
+                "WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin')", adminPassword);
 
-        User admin1 = new User();
-        admin1.setUsername("admin1");
-        admin1.setPassword("123");
-        admin1.setRoles(new HashSet<>(Collections.singletonList(roleAdmin)), false);
-        admin1.setName("Test Admin1");
-        admin1.setLastName("Adminovich1");
-        admin1.setAge((byte) 33);
-        admin1.setEmail("admin1@example.com");
-        userService.createUser(admin1);
+        jdbcTemplate.update("INSERT INTO users (username, password, name, last_name, age, email) " +
+                "SELECT 'admin1', ?, 'Test Admin1', 'Adminovich1', 33, 'admin1@example.com' " +
+                "WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin1')", admin1Password);
+
+        jdbcTemplate.update("INSERT INTO users_roles (user_id, role_id) " +
+                "SELECT (SELECT id FROM users WHERE username = 'user'), (SELECT id FROM roles WHERE name = 'ROLE_USER') " +
+                "WHERE NOT EXISTS (SELECT 1 FROM users_roles WHERE user_id = (SELECT id FROM users WHERE username = 'user') AND role_id = (SELECT id FROM roles WHERE name = 'ROLE_USER'))");
+
+        jdbcTemplate.update("INSERT INTO users_roles (user_id, role_id) " +
+                "SELECT (SELECT id FROM users WHERE username = 'admin'), (SELECT id FROM roles WHERE name = 'ROLE_ADMIN') " +
+                "WHERE NOT EXISTS (SELECT 1 FROM users_roles WHERE user_id = (SELECT id FROM users WHERE username = 'admin') AND role_id = (SELECT id FROM roles WHERE name = 'ROLE_ADMIN'))");
+
+        jdbcTemplate.update("INSERT INTO users_roles (user_id, role_id) " +
+                "SELECT (SELECT id FROM users WHERE username = 'admin1'), (SELECT id FROM roles WHERE name = 'ROLE_ADMIN') " +
+                "WHERE NOT EXISTS (SELECT 1 FROM users_roles WHERE user_id = (SELECT id FROM users WHERE username = 'admin1') AND role_id = (SELECT id FROM roles WHERE name = 'ROLE_ADMIN'))");
     }
 }

@@ -1,5 +1,8 @@
 package ru.kata.spring.boot_security.demo.service;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -7,6 +10,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import ru.kata.spring.boot_security.demo.dao.RoleDao;
 import ru.kata.spring.boot_security.demo.exception.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,37 +24,85 @@ import java.util.stream.Collectors;
 
 @Service
 public class UserServiceImpl implements UserService, UserDetailsService {
+    private final RoleDao roleDao;
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final UserDao userDao;
     private final RoleService roleService;
 
     @Autowired
-    public UserServiceImpl(BCryptPasswordEncoder bCryptPasswordEncoder, UserDao userDao, RoleService roleService) {
+    public UserServiceImpl(BCryptPasswordEncoder bCryptPasswordEncoder, UserDao userDao, RoleService roleService, RoleDao roleDao) {
         this.bCryptPasswordEncoder = bCryptPasswordEncoder;
         this.userDao = userDao;
         this.roleService = roleService;
+        this.roleDao = roleDao;
     }
 
-    @Override
-    @Transactional
-    public void createUser(User user) {
-        if (getByUsername(user.getUsername()).isPresent()) {
-            throw new EntityNotFoundException("Пользователь с username=" + user.getUsername() + " уже существует");
-        }
+//    @Override
+//    @Transactional
+//    public void createUser(User user) {
+//        if (getByUsername(user.getUsername()).isPresent()) {
+//            throw new EntityNotFoundException("Пользователь с username=" + user.getUsername() + " уже существует");
+//        }
+//
+//        Set<Role> roles = user.getRoles();
+//
+//        if (roles == null || roles.isEmpty()) {
+//            throw new IllegalArgumentException("Пользователь должен иметь хотя бы одну роль");
+//        }
+//
+//        user.setPassword(bCryptPasswordEncoder.encode(user.getPassword()));
+//
+//        Set<Role> managedRoles = new HashSet<>();
+//
+//        for (Role role : roles) {
+//            Role managedRole = entityManager.merge(role);
+//            managedRoles.add(managedRole);
+//        }
+//
+//        user.setRoles(managedRoles, false);
+//
+//        userDao.save(user);
+//    }
+@Override
+@Transactional
+public void createUser(User user) {
+    if (getByUsername(user.getUsername()).isPresent()) {
+        throw new EntityNotFoundException("Пользователь с username=" + user.getUsername() + " уже существует");
+    }
 
-        Set<Role> roles = user.getRoles();
+    Set<Role> roles = user.getRoles();
 
-        if (roles != null && !roles.isEmpty()) {
-            user.setPassword(bCryptPasswordEncoder.encode(user.getPassword()));
+    if (roles == null || roles.isEmpty()) {
+        throw new IllegalArgumentException("Пользователь должен иметь хотя бы одну роль");
+    }
 
-            user.setRoles(roles, false);
+    user.setPassword(bCryptPasswordEncoder.encode(user.getPassword()));
 
-            userDao.save(user);
+    Set<Role> managedRoles = new HashSet<>();
+
+    for (Role role : roles) {
+        Role existingRole = roleDao.findByName(role.getName()); // Ищем роль по имени
+        if (existingRole != null) {
+            // Если роль существует, добавляем её в managedRoles
+            managedRoles.add(existingRole);
+            System.out.println("Найдена существующая роль: " + existingRole.getName());
         } else {
-            throw new IllegalArgumentException("Пользователь должен иметь хотя бы одну роль");
+            // Если роль не существует, добавляем новую роль
+            managedRoles.add(role);
+            System.out.println("Добавлена новая роль: " + role.getName());
         }
     }
+
+    // Устанавливаем управляемые роли для пользователя
+    user.setRoles(managedRoles, false);
+
+    // Сохраняем пользователя
+    userDao.save(user);
+    System.out.println("Пользователь с username=" + user.getUsername() + " успешно создан");
+}
 
     @Override
     @Transactional
@@ -152,4 +204,10 @@ public class UserServiceImpl implements UserService, UserDetailsService {
         List<Role> roles = roleService.findAllByIdIn(rolesIds);
         user.setRoles(new HashSet<>(roles), false);
     }
+    @Override
+    @Transactional(readOnly = true)
+    public Set<Role> getRoles(User user) {
+        return user.getRoles();
+    }
+
 }

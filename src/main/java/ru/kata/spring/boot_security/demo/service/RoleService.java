@@ -9,12 +9,12 @@ import java.util.Optional;
 
 public interface RoleService {
     List<Role> getAllRoles();
+
     Optional<Role> findById(Long id);
+
     List<Role> findAllByIdIn(List<Long> ids);
 
-    Set<Role> getRoles(User user);
-
-    Optional<Role> findByName(String roleUser);
+    Role findByName(String roleUser);
 
     Role save(Role newRole);
 }
