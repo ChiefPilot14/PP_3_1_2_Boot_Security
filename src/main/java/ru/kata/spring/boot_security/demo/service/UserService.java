@@ -25,5 +25,6 @@ public interface UserService {
 
     void setRolesForUser(@Valid User user, List<Long> list);
 
-    public Set<Role> getRoles(User user);
+    Set<Role> getRoles(User user);
+
 }

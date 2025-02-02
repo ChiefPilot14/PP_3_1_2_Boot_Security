@@ -21,7 +21,7 @@ public class User implements UserDetails {
     @Column
     private String password;
 
-    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @ManyToMany(cascade = {CascadeType.MERGE})
     @JoinTable(
             name = "users_roles",
             joinColumns = @JoinColumn(name = "user_id"),
@@ -49,6 +49,15 @@ public class User implements UserDetails {
         this.roles = new HashSet<>();
     }
 
+    public User(String username, String password, Set<Role> roles, String name, String lastName, Byte age, String email) {
+        this.username = username;
+        this.password = password;
+        this.roles = roles != null ? new HashSet<>(roles) : new HashSet<>(); // Создаем копию коллекции
+        this.name = name;
+        this.lastName = lastName;
+        this.age = age;
+        this.email = email;
+    }
     public void addRole(Role role) {
         this.roles.add(role);
     }
@@ -101,8 +110,9 @@ public class User implements UserDetails {
         if (clearExistingRoles) {
             this.roles.clear(); // Очищаем старую коллекцию, если это необходимо
         }
+
         if (roles != null) {
-            this.roles.addAll(roles); // Добавляем новую коллекцию
+            this.roles.addAll(new HashSet<>(roles)); // Добавляем копию новой коллекции
         }
     }
     public String getEmail() {
