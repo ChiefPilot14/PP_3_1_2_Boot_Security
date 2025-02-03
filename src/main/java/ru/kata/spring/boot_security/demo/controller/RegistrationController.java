@@ -50,7 +50,7 @@ public class RegistrationController {
         userService.setRolesForUser(user, Arrays.asList(rolesIds));
 
         userService.createUser(user);
-        return "redirect:/login";
+        return "redirect:/admin";
     }
 
 }

@@ -50,13 +50,6 @@
             <input type="password" th:field="*{password}"/>
         </label>
     </p>
-    <p>
-        <label for="roles">Role</label>
-        <select id="roles" name="roles">
-            <option th:each="role : ${user.roles}" th:text="${role.name}" th:value="${role.id}"></option>
-        </select>
-
-    </p>
     <div>
         <span>Роли:</span><br/>
         <div th:each="role : ${allRoles}">
