@@ -58,9 +58,6 @@ public class User implements UserDetails {
         this.age = age;
         this.email = email;
     }
-    public void addRole(Role role) {
-        this.roles.add(role);
-    }
 
     public Long getId() {
         return id;
@@ -187,8 +184,4 @@ public class User implements UserDetails {
         return true;
     }
 
-    public boolean hasAuthority(String authority) {
-        return getAuthorities().stream()
-                .anyMatch(granted -> granted.getAuthority().equals(authority));
-    }
 }
